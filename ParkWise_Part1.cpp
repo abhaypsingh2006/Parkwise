@@ -280,3 +280,246 @@ public:
         }
     }
 };
+
+class ParkingManager
+{
+private:
+    ParkingSlot slots[TOTAL_SLOTS];
+    queue<Vehicle *> normalQueue;
+    queue<Vehicle *> emergencyQueue;
+    RecordList history;
+    Billing billing;
+
+public:
+    ParkingManager()
+    {
+        for (int i = 0; i < TOTAL_SLOTS; i++)
+            slots[i] = ParkingSlot(i + 1);
+    }
+
+    Vehicle *createVehicle()
+    {
+        string number, owner;
+        int duration, type;
+
+        cout << "\nEnter vehicle number: ";
+        cin >> number;
+
+        cout << "Enter owner name (single word): ";
+        cin >> owner;
+
+        cout << "Enter parking duration in hours: ";
+
+        if (!(cin >> duration) || duration <= 0)
+        {
+            cin.clear();
+            cin.ignore(1000, '\n');
+            cout << "\nInvalid duration.\n";
+            return NULL;
+        }
+
+        cout << "\nSelect Vehicle Type\n";
+        cout << "1. Car\n";
+        cout << "2. Bike\n";
+        cout << "3. Emergency Vehicle\n";
+        cout << "Enter type: ";
+
+        if (!(cin >> type))
+        {
+            cin.clear();
+            cin.ignore(1000, '\n');
+            cout << "\nInvalid vehicle type.\n";
+            return NULL;
+        }
+
+        if (type == 1) return new Car(number, owner, duration);
+        if (type == 2) return new Bike(number, owner, duration);
+        if (type == 3) return new EmergencyVehicle(number, owner, duration);
+
+        cout << "\nInvalid vehicle type.\n";
+        return NULL;
+    }
+
+    void registerVehicle()
+    {
+        cout << "\n============================================\n";
+        cout << "           VEHICLE REGISTRATION             \n";
+        cout << "============================================\n";
+
+        Vehicle *v = createVehicle();
+
+        if (v == NULL)
+            return;
+
+        cout << "\nVehicle registered successfully!\n";
+        cout << "Vehicle Number : " << v->getNumber() << endl;
+        cout << "Vehicle Type   : " << v->getType() << endl;
+        cout << "Parking Rate   : Rs. " << v->getRate()
+             << " per hour\n";
+
+        delete v;
+    }
+
+    void displaySlots()
+    {
+        cout << "\n================================================\n";
+        cout << "               PARKING SLOT STATUS              \n";
+        cout << "================================================\n";
+
+        cout << left << setw(15) << "SLOT NUMBER" << "STATUS\n";
+        cout << "------------------------------------------------\n";
+
+        for (int i = 0; i < TOTAL_SLOTS; i++)
+            slots[i].display();
+
+        cout << "================================================\n";
+    }
+
+    int findFreeSlot()
+    {
+        for (int i = 0; i < TOTAL_SLOTS; i++)
+            if (slots[i].isEmpty())
+                return i;
+
+        return -1;
+    }
+
+    void parkVehicle(Vehicle *v)
+    {
+        if (v == NULL)
+            return;
+
+        int slot = findFreeSlot();
+
+        if (slot == -1)
+        {
+            cout << "\nParking is full.\n";
+
+            if (v->getType() == "Emergency")
+            {
+                emergencyQueue.push(v);
+                cout << "Emergency vehicle added to priority queue.\n";
+            }
+            else
+            {
+                normalQueue.push(v);
+                cout << "Vehicle added to waiting queue.\n";
+            }
+
+            return;
+        }
+
+        slots[slot].park(v);
+
+        cout << "\n============================================\n";
+        cout << "          VEHICLE PARKED SUCCESSFULLY        \n";
+        cout << "============================================\n";
+        cout << "Vehicle Number : " << v->getNumber() << endl;
+        cout << "Vehicle Type   : " << v->getType() << endl;
+        cout << "Allocated Slot : " << slot + 1 << endl;
+        cout << "============================================\n";
+    }
+
+    void checkout()
+    {
+        string number;
+
+        cout << "\nEnter vehicle number for checkout: ";
+        cin >> number;
+
+        for (int i = 0; i < TOTAL_SLOTS; i++)
+        {
+            Vehicle *v = slots[i].getVehicle();
+
+            if (v != NULL && v->getNumber() == number)
+            {
+                billing.showBill(v, i + 1);
+
+                history.addRecord(
+                    v->getNumber(),
+                    v->getOwner(),
+                    v->getType(),
+                    i + 1,
+                    v->getDuration(),
+                    billing.calculateBill(v)
+                );
+
+                delete slots[i].removeVehicle();
+
+                cout << "\nCheckout completed successfully.\n";
+
+                allocateWaitingVehicle();
+                return;
+            }
+        }
+
+        cout << "\nVehicle not found in the parking area.\n";
+    }
+
+    void allocateWaitingVehicle()
+    {
+        int slot = findFreeSlot();
+
+        if (slot == -1)
+            return;
+
+        Vehicle *v = NULL;
+
+        if (!emergencyQueue.empty())
+        {
+            v = emergencyQueue.front();
+            emergencyQueue.pop();
+            cout << "\nPriority allocation: Emergency vehicle.\n";
+        }
+        else if (!normalQueue.empty())
+        {
+            v = normalQueue.front();
+            normalQueue.pop();
+            cout << "\nWaiting vehicle allocated a slot.\n";
+        }
+
+        if (v != NULL)
+        {
+            slots[slot].park(v);
+            cout << "Vehicle Number : " << v->getNumber() << endl;
+            cout << "Allocated Slot : " << slot + 1 << endl;
+        }
+    }
+
+    void showWaitingQueue()
+    {
+        cout << "\n============================================\n";
+        cout << "                WAITING QUEUE                \n";
+        cout << "============================================\n";
+
+        queue<Vehicle *> tempEmergency = emergencyQueue;
+        queue<Vehicle *> tempNormal = normalQueue;
+
+        cout << "\nEMERGENCY PRIORITY QUEUE\n";
+        cout << "--------------------------------------------\n";
+
+        if (tempEmergency.empty())
+            cout << "No emergency vehicles waiting.\n";
+
+        while (!tempEmergency.empty())
+        {
+            Vehicle *v = tempEmergency.front();
+            cout << v->getNumber() << " - " << v->getType() << endl;
+            tempEmergency.pop();
+        }
+
+        cout << "\nNORMAL WAITING QUEUE\n";
+        cout << "--------------------------------------------\n";
+
+        if (tempNormal.empty())
+            cout << "No normal vehicles waiting.\n";
+
+        while (!tempNormal.empty())
+        {
+            Vehicle *v = tempNormal.front();
+            cout << v->getNumber() << " - " << v->getType() << endl;
+            tempNormal.pop();
+        }
+
+        cout << "============================================\n";
+    }
