@@ -523,3 +523,331 @@ public:
 
         cout << "============================================\n";
     }
+void priorityInformation()
+    {
+        cout << "\n============================================\n";
+        cout << "           EMERGENCY PRIORITY SYSTEM         \n";
+        cout << "============================================\n";
+        cout << "Emergency vehicles are given priority.\n";
+        cout << "They receive the next available slot before\n";
+        cout << "vehicles in the normal waiting queue.\n";
+        cout << "============================================\n";
+    }
+
+    void calculateCurrentBill()
+    {
+        string number;
+
+        cout << "\nEnter vehicle number: ";
+        cin >> number;
+
+        for (int i = 0; i < TOTAL_SLOTS; i++)
+        {
+            Vehicle *v = slots[i].getVehicle();
+
+            if (v != NULL && v->getNumber() == number)
+            {
+                billing.showBill(v, i + 1);
+                return;
+            }
+        }
+
+        cout << "\nVehicle not found in occupied slots.\n";
+    }
+
+    void displayRecords()
+    {
+        cout << "\n============================================================\n";
+        cout << "                 CURRENT PARKING RECORDS                    \n";
+        cout << "============================================================\n";
+
+        bool found = false;
+
+        for (int i = 0; i < TOTAL_SLOTS; i++)
+        {
+            Vehicle *v = slots[i].getVehicle();
+
+            if (v != NULL)
+            {
+                if (!found)
+                {
+                    cout << left
+                         << setw(15) << "VEHICLE NO."
+                         << setw(20) << "OWNER"
+                         << setw(15) << "TYPE"
+                         << setw(10) << "HOURS"
+                         << "RATE\n";
+
+                    cout << "------------------------------------------------------------\n";
+                }
+
+                v->display();
+                found = true;
+            }
+        }
+
+        if (!found)
+            cout << "No vehicles are currently parked.\n";
+
+        cout << "============================================================\n";
+    }
+
+    void displayHistory()
+    {
+        history.displayRecords();
+    }
+
+    void saveRecords()
+    {
+        ofstream file("vehicles.txt");
+
+        if (!file)
+        {
+            cout << "\nUnable to save vehicle records.\n";
+            return;
+        }
+
+        for (int i = 0; i < TOTAL_SLOTS; i++)
+        {
+            Vehicle *v = slots[i].getVehicle();
+
+            if (v != NULL)
+            {
+                file << v->getType() << "|"
+                     << v->getNumber() << "|"
+                     << v->getOwner() << "|"
+                     << v->getDuration() << "|"
+                     << i + 1 << endl;
+            }
+        }
+
+        file.close();
+        history.saveHistory();
+
+        cout << "\nRecords saved successfully.\n";
+    }
+
+    void loadVehicles()
+    {
+        ifstream file("vehicles.txt");
+
+        if (!file)
+        {
+            cout << "\nNo saved vehicle file found. Starting fresh.\n";
+            history.loadHistory();
+            return;
+        }
+
+        for (int i = 0; i < TOTAL_SLOTS; i++)
+        {
+            if (!slots[i].isEmpty())
+                delete slots[i].removeVehicle();
+        }
+
+        string type, number, owner;
+        int duration, slot;
+
+        while (getline(file, type, '|'))
+        {
+            if (!getline(file, number, '|')) break;
+            if (!getline(file, owner, '|')) break;
+            if (!(file >> duration)) break;
+
+            file.ignore(1000, '|');
+
+            if (!(file >> slot)) break;
+
+            file.ignore(1000, '\n');
+
+            if (slot < 1 || slot > TOTAL_SLOTS)
+                continue;
+
+            if (!slots[slot - 1].isEmpty())
+                continue;
+
+            Vehicle *v = NULL;
+
+            if (type == "Car")
+                v = new Car(number, owner, duration);
+            else if (type == "Bike")
+                v = new Bike(number, owner, duration);
+            else if (type == "Emergency")
+                v = new EmergencyVehicle(number, owner, duration);
+
+            if (v != NULL)
+                slots[slot - 1].park(v);
+        }
+
+        file.close();
+        history.loadHistory();
+
+        cout << "\nSaved vehicle records loaded.\n";
+    }
+
+    void menu()
+    {
+        loadVehicles();
+
+        int choice;
+
+        do
+        {
+            int available = 0;
+            int occupied = 0;
+
+            for (int i = 0; i < TOTAL_SLOTS; i++)
+            {
+                if (slots[i].isEmpty())
+                    available++;
+                else
+                    occupied++;
+            }
+
+            cout << "\n\n";
+            cout << "+================================================+\n";
+            cout << "|             PARKWISE SMART PARKING             |\n";
+            cout << "|              MANAGEMENT SYSTEM                 |\n";
+            cout << "+================================================+\n";
+            cout << "| DASHBOARD                                      |\n";
+            cout << "| Total Slots      : " << setw(2) << left
+                 << TOTAL_SLOTS << "                         |\n";
+            cout << "| Available Slots  : " << setw(2) << left
+                 << available << "                         |\n";
+            cout << "| Occupied Slots   : " << setw(2) << left
+                 << occupied << "                         |\n";
+            cout << "| Emergency Queue  : " << setw(2) << left
+                 << emergencyQueue.size() << "                         |\n";
+            cout << "| Normal Queue     : " << setw(2) << left
+                 << normalQueue.size() << "                         |\n";
+            cout << "+------------------------------------------------+\n";
+            cout << "|                    MAIN MENU                   |\n";
+            cout << "+------------------------------------------------+\n";
+            cout << "|  1. Register Vehicle                            |\n";
+            cout << "|  2. Display Parking Slots                       |\n";
+            cout << "|  3. Park Vehicle / Allocate Slot                |\n";
+            cout << "|  4. Remove Vehicle / Checkout                   |\n";
+            cout << "|  5. Show Waiting Queue                          |\n";
+            cout << "|  6. Priority Vehicle Handling                   |\n";
+            cout << "|  7. Calculate Parking Charges                   |\n";
+            cout << "|  8. Display Current Vehicle Records             |\n";
+            cout << "|  9. Display Parking History                     |\n";
+            cout << "| 10. Save Records                                |\n";
+            cout << "| 11. Load Records                                |\n";
+            cout << "| 12. Exit                                        |\n";
+            cout << "+================================================+\n";
+
+            cout << "Select an option (1-12): ";
+
+            if (!(cin >> choice))
+            {
+                cin.clear();
+                cin.ignore(1000, '\n');
+                cout << "\nPlease enter a valid number.\n";
+                continue;
+            }
+
+            switch (choice)
+            {
+                case 1:
+                    registerVehicle();
+                    break;
+
+                case 2:
+                    displaySlots();
+                    break;
+
+                case 3:
+                {
+                    Vehicle *v = createVehicle();
+
+                    if (v != NULL)
+                        parkVehicle(v);
+
+                    break;
+                }
+
+                case 4:
+                    checkout();
+                    break;
+
+                case 5:
+                    showWaitingQueue();
+                    break;
+
+                case 6:
+                    priorityInformation();
+                    break;
+
+                case 7:
+                    calculateCurrentBill();
+                    break;
+
+                case 8:
+                    displayRecords();
+                    break;
+
+                case 9:
+                    displayHistory();
+                    break;
+
+                case 10:
+                    saveRecords();
+                    break;
+
+                case 11:
+                    loadVehicles();
+                    break;
+
+                case 12:
+                    saveRecords();
+
+                    cout << "\n";
+                    cout << "+==========================================+\n";
+                    cout << "|       THANK YOU FOR USING PARKWISE!       |\n";
+                    cout << "|             DRIVE SAFELY                  |\n";
+                    cout << "+==========================================+\n";
+                    break;
+
+                default:
+                    cout << "\nInvalid choice! Please select 1 to 12.\n";
+            }
+
+            if (choice >= 1 && choice <= 11)
+            {
+                cout << "\nPress Enter to return to the main menu...";
+                cin.ignore(1000, '\n');
+                cin.get();
+            }
+
+        } while (choice != 12);
+    }
+
+    ~ParkingManager()
+    {
+        for (int i = 0; i < TOTAL_SLOTS; i++)
+        {
+            if (!slots[i].isEmpty())
+                delete slots[i].removeVehicle();
+        }
+
+        while (!emergencyQueue.empty())
+        {
+            delete emergencyQueue.front();
+            emergencyQueue.pop();
+        }
+
+        while (!normalQueue.empty())
+        {
+            delete normalQueue.front();
+            normalQueue.pop();
+        }
+    }
+};
+
+int main()
+{
+    ParkingManager manager;
+    manager.menu();
+
+    return 0;
+}
